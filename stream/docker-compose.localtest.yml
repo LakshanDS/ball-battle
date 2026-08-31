@@ -15,8 +15,8 @@ services:
     restart: unless-stopped
     shm_size: 256m
     environment:
-      RES: "1280x720"
+      RES: "1920x1080"
       FPS: "30"
-      BITRATE: "2500k"
+      BITRATE: "6000k"
       PAGE_URL: "file:///app/index.html"
       RTMP_URL: "rtmp://mediamtx:1935/live/test"
