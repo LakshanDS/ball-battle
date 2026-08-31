@@ -1,0 +1,15 @@
+services:
+  browser-stream:
+    image: ghcr.io/lakshands/ball-battle-browser:latest
+    build:
+      context: ..
+      dockerfile: stream/Dockerfile.browser
+    restart: unless-stopped
+    shm_size: 256m
+    environment:
+      RES: "1920x1080"
+      FPS: "30"
+      BITRATE: "5000k"
+      PAGE_URL: "file:///app/index.html"   # append ?music=3 or ?m=900 if wanted
+    volumes:
+      - ./key.txt:/run/key.txt:ro

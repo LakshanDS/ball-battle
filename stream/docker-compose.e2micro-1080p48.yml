@@ -1,0 +1,17 @@
+# experiment: browser capture at 1080p48 on the 1 GB e2-micro
+# revert to the sane default with: docker compose -f docker-compose.browser.yml up -d
+services:
+  browser-stream:
+    image: ghcr.io/lakshands/ball-battle-browser:latest
+    build:
+      context: ..
+      dockerfile: stream/Dockerfile.browser
+    restart: unless-stopped
+    shm_size: 256m
+    environment:
+      RES: "1920x1080"
+      FPS: "48"
+      BITRATE: "5000k"
+      PAGE_URL: "file:///app/index.html"
+    volumes:
+      - ./key.txt:/run/key.txt:ro

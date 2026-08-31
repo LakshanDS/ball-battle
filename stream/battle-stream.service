@@ -1,0 +1,19 @@
+[Unit]
+Description=color ball battle — 24/7 YouTube live stream
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/battle
+# put your YouTube stream key in /opt/battle/key.txt (single line)
+ExecStart=/usr/bin/python3 /opt/battle/battle_stream.py --key-file /opt/battle/key.txt --gain 3
+Restart=always
+RestartSec=10
+# the micro instance is burstable; be a polite tenant
+CPUWeight=60
+MemoryHigh=800M
+MemoryMax=950M
+
+[Install]
+WantedBy=multi-user.target

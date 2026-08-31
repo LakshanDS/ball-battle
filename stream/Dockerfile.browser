@@ -1,0 +1,12 @@
+FROM debian:bookworm-slim
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       chromium xvfb xdotool pulseaudio ffmpeg fonts-dejavu-core fonts-jetbrains-mono \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY index.html /app/index.html
+COPY stream/browser-stream.sh /app/browser-stream.sh
+RUN chmod +x /app/browser-stream.sh
+
+ENTRYPOINT ["/app/browser-stream.sh"]

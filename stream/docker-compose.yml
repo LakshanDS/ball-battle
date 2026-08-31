@@ -1,0 +1,13 @@
+services:
+  stream:
+    build: .
+    restart: unless-stopped
+    # friend's box: lower this (e.g. "3.0") if the stream must not crowd his stuff
+    volumes:
+      - ./key.txt:/run/key.txt:ro
+    command:
+      - --width=1920
+      - --height=1080
+      - --fps=60
+      - --video-bitrate=5000k
+      - --key-file=/run/key.txt
