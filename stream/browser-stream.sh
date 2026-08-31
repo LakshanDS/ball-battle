@@ -20,6 +20,8 @@ echo "browser stream: $RES @ ${FPS}fps $BITRATE -> ${DEST%/*}/<key>"
 
 Xvfb :99 -screen 0 "${RES}x24" &
 sleep 1
+# without a WM chromium ignores kiosk/window-size geometry and opens small
+openbox &
 
 pulseaudio --start --exit-idle-time=-1 2>/dev/null || pulseaudio --start --exit-idle-time=-1
 pactl load-module module-null-sink sink_name=gamesink sink_properties=device.description=GameSink
