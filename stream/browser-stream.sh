@@ -5,7 +5,10 @@ RES=${RES:-1920x1080}
 FPS=${FPS:-30}
 BITRATE=${BITRATE:-5000k}
 PAGE_URL=${PAGE_URL:-file:///app/index.html}
-KEY=$(tr -d '\r\n' < /run/key.txt)
+KEY=""
+[ -r /run/key.txt ] && KEY=$(tr -d '\r\n' < /run/key.txt)
+DEST=${RTMP_URL:-rtmp://a.rtmp.youtube.com/live2/${KEY}}
+[ -n "$DEST" ] || { echo "no destination: mount /run/key.txt or set RTMP_URL"; exit 1; }
 W=${RES%%x*}; H=${RES##*x}
 KBPS=${BITRATE%[kK]}
 
@@ -13,7 +16,7 @@ export DISPLAY=:99
 export XDG_RUNTIME_DIR=/tmp/xdg
 mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
 
-echo "browser stream: $RES @ ${FPS}fps $BITRATE -> youtube"
+echo "browser stream: $RES @ ${FPS}fps $BITRATE -> ${DEST%/*}/<key>"
 
 Xvfb :99 -screen 0 "${RES}x24" &
 sleep 1
@@ -45,7 +48,7 @@ while true; do
     -c:v libx264 -preset ultrafast -pix_fmt yuv420p \
     -g $((FPS * 2)) -b:v "$BITRATE" -maxrate "$BITRATE" -bufsize "$((KBPS * 2))k" \
     -c:a aac -b:a 128k -ar 44100 \
-    -f flv "rtmp://a.rtmp.youtube.com/live2/${KEY}" \
+    -f flv "$DEST" \
     || echo "ffmpeg exited — reconnecting in 5 s"
   sleep 5
 done

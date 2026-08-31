@@ -1,0 +1,22 @@
+# keyless end-to-end test: browser-stream pushes into MediaMTX on the same
+# docker network; watch via HLS on port 8888. No YouTube key needed.
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    restart: unless-stopped
+    ports:
+      - "8888:8888"   # HLS — open this port in the VPS firewall to watch
+
+  browser-stream:
+    image: ghcr.io/lakshands/ball-battle-browser:latest
+    build:
+      context: ..
+      dockerfile: stream/Dockerfile.browser
+    restart: unless-stopped
+    shm_size: 256m
+    environment:
+      RES: "1280x720"
+      FPS: "30"
+      BITRATE: "2500k"
+      PAGE_URL: "file:///app/index.html"
+      RTMP_URL: "rtmp://mediamtx:1935/live/test"
