@@ -138,8 +138,7 @@ const BONE = "#a9a9c3", VOID = "#221f3e", REF = "#8a8aa8";
 const COLORS = [BONE, VOID];
 const BALL_COLORS = ["#f4f4f9", "#151228"];
 const BALL_OUTLINE = ["rgba(34,31,62,.4)", "rgba(244,244,249,.4)"];
-const BASE_SPEED = 368;
-const MOBILE_MAX_SHORT_SIDE = 600; // phones: fixed px/s crosses the board way faster than on desktop
+const BASE_SPEED = 368; // px/s at the 1080p reference cell size (64px); scaled to the actual board in makeBall
 
 const TOKENS = {
   speed:  { glyph: "»", label: "speed",     speedMul: 2 },
@@ -454,7 +453,7 @@ function makeBall(color, x, y, temp = false, dieAt = 0) {
   const q = Math.random() < 0.5 ? 1 : -1;
   return {
     color, x, y, temp, dieAt,
-    spd: BASE_SPEED * (Math.min(W, H) < MOBILE_MAX_SHORT_SIDE ? 0.64 : 1) * (0.85 + Math.random() * 0.3), // 0.75 then -15%
+    spd: BASE_SPEED * (CELL / 64) * (0.85 + Math.random() * 0.3), // same blocks-per-second pacing on every screen
     vx: Math.cos(a) * q, vy: Math.sin(a) * (Math.random() < 0.5 ? 1 : -1),
     speedUntil: 0, bigUntil: 0, ghostUntil: 0, frozenUntil: 0, shrinkUntil: 0,
     rallyUntil: 0, armed: false, armedUntil: 0, lastArmTick: 0, fx: null, fxUntil: 0,
