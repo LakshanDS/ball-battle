@@ -27,7 +27,6 @@
     position: absolute; top: 0; bottom: 0; left: 0; width: 50%;
     background: var(--bone); transition: width 0.25s ease-out;
   }
-  #bar .notch { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ref); }
   #bar .pct {
     position: absolute; top: 50%; transform: translateY(-50%);
     font-size: 18px; font-weight: 700; letter-spacing: 0.06em; font-variant-numeric: tabular-nums;
@@ -89,6 +88,15 @@
   /* overlay text contrasts with the flood of the winning color */
   #winTxt.light, #finalScore.light, #nextIn.light { color: var(--bone); }
   #winTxt.dark, #finalScore.dark, #nextIn.dark { color: var(--void); }
+  /* match-start rules card: solid 3s, fades out over the last 2s */
+  #rules {
+    position: fixed; top: 28%; left: 50%; transform: translate(-50%, -50%);
+    max-width: 86vw; text-align: center;
+    padding: 8px 18px; border: 2px solid var(--ref);
+    background: rgba(34, 31, 62, 0.85); color: var(--bone);
+    font-size: 16px; letter-spacing: 0.05em;
+    pointer-events: none; user-select: none;
+  }
 </style>
 </head>
 <body>
@@ -96,14 +104,13 @@
 
 <div id="bar">
   <div id="fillL"></div>
-  <div class="notch" style="left: 15%"></div>
-  <div class="notch" style="left: 85%"></div>
   <span class="pct l" id="pctL">50%</span>
   <span class="pct r" id="pctR">50%</span>
   <span class="cnt l" id="cntL"></span>
   <span class="cnt r" id="cntR"></span>
 </div>
 <div id="event"></div>
+<div id="rules">most blocks at 0:00 wins &middot; reach 80% for an instant win</div>
 <div class="chip clock" id="clockChip"><b id="clock">10:00</b></div>
 <div id="sndHint">click for sound &middot; m mute &middot; 1-5 music</div>
 
@@ -123,6 +130,7 @@ const ctx = canvas.getContext("2d");
 const params = new URLSearchParams(location.search);
 const MATCH_SECONDS = Number(params.get("m")) || 10 * 60;
 const RESTART_SECONDS = Number(params.get("r")) || 10;
+const RULES_SECONDS = 5;       // rules card: 3s solid + 2s fade
 const MUSIC_IDX = Math.max(0, (Number(params.get("music")) || 1) - 1);
 
 const TARGET_BLOCKS = 500;      // ~250 blocks per side on a 1080p screen
@@ -131,6 +139,7 @@ const COLORS = [BONE, VOID];
 const BALL_COLORS = ["#f4f4f9", "#151228"];
 const BALL_OUTLINE = ["rgba(34,31,62,.4)", "rgba(244,244,249,.4)"];
 const BASE_SPEED = 368;
+const MOBILE_MAX_SHORT_SIDE = 600; // phones: fixed px/s crosses the board way faster than on desktop
 
 const TOKENS = {
   speed:  { glyph: "»", label: "speed",     speedMul: 2 },
@@ -157,7 +166,7 @@ let W, H, cols, rows, grid;
 let CELL = 40; // recomputed per screen size in resize()
 let counts = [0, 0];
 let balls = [], tokens = [], flashes = [], sparks = [];
-let matchLeft = MATCH_SECONDS, restartIn = 0, overT = 0;
+let matchLeft = MATCH_SECONDS, restartIn = 0, overT = 0, rulesUntil = 0;
 let clock = 0;                    // sim-time seconds, advances only during play
 let state = "play";               // "play" | "over"
 let winner = 0, sd = false, nextTokenIn = 6, lastTick = -1;
@@ -165,7 +174,7 @@ let eventTxt = "", eventUntil = 0;
 
 const el = (id) => document.getElementById(id);
 const hud = { clock: el("clock"), chip: el("clockChip"),
-              ev: el("event"), ov: el("overlay"), win: el("winTxt"), fin: el("finalScore"), next: el("nextIn"),
+              ev: el("event"), rules: el("rules"), ov: el("overlay"), win: el("winTxt"), fin: el("finalScore"), next: el("nextIn"),
               fillL: el("fillL"), pctL: el("pctL"), pctR: el("pctR"), cntL: el("cntL"), cntR: el("cntR") };
 
 // ---- audio: everything synthesized with Web Audio, no files, works offline ----
@@ -445,7 +454,7 @@ function makeBall(color, x, y, temp = false, dieAt = 0) {
   const q = Math.random() < 0.5 ? 1 : -1;
   return {
     color, x, y, temp, dieAt,
-    spd: BASE_SPEED * (0.85 + Math.random() * 0.3),
+    spd: BASE_SPEED * (Math.min(W, H) < MOBILE_MAX_SHORT_SIDE ? 0.64 : 1) * (0.85 + Math.random() * 0.3), // 0.75 then -15%
     vx: Math.cos(a) * q, vy: Math.sin(a) * (Math.random() < 0.5 ? 1 : -1),
     speedUntil: 0, bigUntil: 0, ghostUntil: 0, frozenUntil: 0, shrinkUntil: 0,
     rallyUntil: 0, armed: false, armedUntil: 0, lastArmTick: 0, fx: null, fxUntil: 0,
@@ -461,19 +470,29 @@ function recount() {
 function reset() {
   cols = Math.ceil(W / CELL); rows = Math.ceil(H / CELL);
   grid = new Uint8Array(cols * rows);
-  // even split: dark blue territory on the right, blocky staircase edge
-  for (let row = 0; row < rows; row++) {
-    const edge = Math.floor(cols * 0.5) + ((Math.random() * 5) | 0) - 2;
-    for (let col = edge; col < cols; col++) grid[row * cols + col] = 1;
+  // even split with a blocky staircase edge; landscape: blue right, portrait: blue bottom
+  if (H > W) {
+    for (let col = 0; col < cols; col++) {
+      const edge = Math.floor(rows * 0.5) + ((Math.random() * 5) | 0) - 2;
+      for (let row = edge; row < rows; row++) grid[row * cols + col] = 1;
+    }
+  } else {
+    for (let row = 0; row < rows; row++) {
+      const edge = Math.floor(cols * 0.5) + ((Math.random() * 5) | 0) - 2;
+      for (let col = edge; col < cols; col++) grid[row * cols + col] = 1;
+    }
   }
   recount();
-  balls = [
+  balls = H > W ? [
+    makeBall(0, W * 0.5, H * 0.25),
+    makeBall(1, W * 0.5, H * 0.75),
+  ] : [
     makeBall(0, W * 0.25, H * 0.5),
     makeBall(1, W * 0.75, H * 0.4),
   ];
   tokens = []; flashes = []; sparks = [];
   for (let i = 0; i < 5; i++) spawnToken();
-  matchLeft = MATCH_SECONDS; clock = 0; state = "play";
+  matchLeft = MATCH_SECONDS; clock = 0; state = "play"; rulesUntil = clock + RULES_SECONDS;
   sd = false; nextTokenIn = 2; lastTick = -1;
   Sfx.onNewMatch();
   eventTxt = ""; eventUntil = 0;
@@ -769,9 +788,9 @@ function tickGame(dt) {
   }
   flashes = flashes.filter((f) => clock - f.at < 0.5);
 
-  // domination win: one color takes 75% of the board
+  // domination win: one color takes 80% of the board
   const total = cols * rows;
-  if (counts[0] >= total * 0.75 || counts[1] >= total * 0.75) { endMatch(); return; }
+  if (counts[0] >= total * 0.8 || counts[1] >= total * 0.8) { endMatch(); return; }
 
   if (matchLeft <= 0) endMatch();
 }
@@ -782,6 +801,7 @@ function endMatch() {
   matchLeft = 0; overT = 0; restartIn = RESTART_SECONDS;
   winner = counts[0] === counts[1] ? (Math.random() < 0.5 ? 0 : 1) : counts[0] > counts[1] ? 0 : 1;
   tokens = [];
+  rulesUntil = 0;
   Sfx.fanfare();
   hud.chip.classList.remove("sd", "last10");
   announce("");
@@ -823,7 +843,8 @@ function draw() {
   ctx.fillStyle = COLORS[1];
   for (let row = 0; row < rows; row++) {
     for (let col = 0; col < cols; col++) {
-      if (grid[row * cols + col] === 1) ctx.fillRect(col * CELL, row * CELL, CELL, CELL);
+      // half-pixel overdraw: kills AA seams between cells on fractional-dpr screens
+      if (grid[row * cols + col] === 1) ctx.fillRect(col * CELL - 0.5, row * CELL - 0.5, CELL + 1, CELL + 1);
     }
   }
 
@@ -927,6 +948,10 @@ function updateHud() {
   } else {
     hud.ev.style.opacity = 0;
   }
+
+  // rules card: solid for 3s, gone by 5s
+  const rulesRemain = rulesUntil - clock;
+  hud.rules.style.opacity = rulesRemain > 0 ? Math.min(1, rulesRemain / 2) : 0;
 
   if (state === "over" && overT > 1.2 && hud.ov.classList.contains("hidden")) {
     // text color contrasts with the flood, which uses the winner's color
