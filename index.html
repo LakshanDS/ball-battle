@@ -453,7 +453,8 @@ function makeBall(color, x, y, temp = false, dieAt = 0) {
   const q = Math.random() < 0.5 ? 1 : -1;
   return {
     color, x, y, temp, dieAt,
-    spd: BASE_SPEED * (CELL / 64) * (0.85 + Math.random() * 0.3), // same blocks-per-second pacing on every screen
+    // pow < 1 keeps the desktop reference exact but lets small screens run a bit quicker
+    spd: BASE_SPEED * Math.pow(CELL / 64, 0.85) * (0.85 + Math.random() * 0.3),
     vx: Math.cos(a) * q, vy: Math.sin(a) * (Math.random() < 0.5 ? 1 : -1),
     speedUntil: 0, bigUntil: 0, ghostUntil: 0, frozenUntil: 0, shrinkUntil: 0,
     rallyUntil: 0, armed: false, armedUntil: 0, lastArmTick: 0, fx: null, fxUntil: 0,
